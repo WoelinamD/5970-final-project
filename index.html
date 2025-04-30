@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mobile Note App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f9f9f9;
+    }
+
+    header {
+      background-color: #007bff;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-around;
+      background-color: #f1f1f1;
+      position: sticky;
+      top: 0;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 1rem;
+      border: none;
+      background: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    nav button.active {
+      background-color: #007bff;
+      color: white;
+    }
+
+    section {
+      display: none;
+      padding: 1rem;
+    }
+
+    section.active {
+      display: block;
+    }
+
+    ul {
+      padding-left: 1.2rem;
+    }
+
+    .note {
+      background: white;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border-radius: 5px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .note button {
+      background: red;
+      color: white;
+      border: none;
+      float: right;
+      cursor: pointer;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin: 1rem 0;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .save-btn {
+      background-color: #28a745;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    @media (min-width: 600px) {
+      body {
+        max-width: 600px;
+        margin: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Note Keeper</h1>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" data-tab="notes">Notes</button>
+    <button class="tab-btn" data-tab="add">Add Note</button>
+  </nav>
+
+  <section id="notes" class="active">
+    <div id="noteList"></div>
+  </section>
+
+  <section id="add">
+    <h2>New Note</h2>
+    <textarea id="noteInput" placeholder="Enter bullet points, one per line..."></textarea>
+    <button class="save-btn" onclick="saveNote()">Save Note</button>
+  </section>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab-btn');
+    const sections = document.querySelectorAll('section');
+    const noteList = document.getElementById('noteList');
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        sections.forEach(s => s.classList.remove('active'));
+
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    let notes = JSON.parse(localStorage.getItem('notes')) || [];
+
+    function saveNote() {
+      const input = document.getElementById('noteInput').value.trim();
+      if (input === '') return;
+
+      const bullets = input.split('\n').map(line => line.trim()).filter(line => line);
+      notes.push(bullets);
+      localStorage.setItem('notes', JSON.stringify(notes));
+      document.getElementById('noteInput').value = '';
+      showNotes();
+      tabs[0].click(); // switch to Notes tab
+    }
+
+    function deleteNote(index) {
+      notes.splice(index, 1);
+      localStorage.setItem('notes', JSON.stringify(notes));
+      showNotes();
+    }
+
+    function showNotes() {
+      noteList.innerHTML = '';
+      if (notes.length === 0) {
+        noteList.innerHTML = "<p>No notes yet.</p>";
+        return;
+      }
+
+      notes.forEach((note, idx) => {
+        const div = document.createElement('div');
+        div.className = 'note';
+        const ul = document.createElement('ul');
+        note.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteNote(idx);
+        div.appendChild(delBtn);
+        div.appendChild(ul);
+        noteList.appendChild(div);
+      });
+    }
+
+    showNotes();
+  </script>
+</body>
+</html>
