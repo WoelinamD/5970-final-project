@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Mobile Note App</title>
+  <title>Note Taker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h2 class="text-center mb-4">📒 Mobile Note App</h2>
+    <h2 class="text-center mb-4">📝 Note Taker</h2>
 
     <!-- Tabs -->
-    <ul class="nav nav-tabs mb-3" id="noteTabs">
+    <ul class="nav nav-tabs mb-3">
       <li class="nav-item">
         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#viewNotes">Notes</button>
       </li>
@@ -21,18 +20,33 @@
       </li>
     </ul>
 
-    <!-- Tab content -->
     <div class="tab-content">
-      <!-- Notes tab -->
+      <!-- View Notes -->
       <div class="tab-pane fade show active" id="viewNotes">
         <div id="noteList" class="d-grid gap-3"></div>
       </div>
 
-      <!-- Add Note tab -->
+      <!-- Add Note -->
       <div class="tab-pane fade" id="addNote">
         <div class="mb-3">
-          <label for="noteInput" class="form-label">New Note (one bullet per line)</label>
-          <textarea id="noteInput" class="form-control" rows="5" placeholder="- Buy milk\n- Finish report"></textarea>
+          <label class="form-label">Note Type</label>
+          <select id="noteType" class="form-select">
+            <option value="checklist">Checklist</option>
+            <option value="table">Table</option>
+          </select>
+        </div>
+        <div class="mb-3 d-flex gap-2">
+          <select id="noteFont" class="form-select w-50">
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Tahoma">Tahoma</option>
+          </select>
+          <input type="color" id="noteColor" class="form-control form-control-color" title="Text color" value="#000000">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Note Content</label>
+          <textarea id="noteInput" class="form-control" rows="6" placeholder="Enter items (one per line for checklist, CSV for table)"></textarea>
         </div>
         <button class="btn btn-success w-100" onclick="saveNote()">Save Note</button>
       </div>
@@ -45,10 +59,23 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Edit Note</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <textarea id="editTextarea" class="form-control" rows="5"></textarea>
+          <select id="editNoteType" class="form-select mb-2">
+            <option value="checklist">Checklist</option>
+            <option value="table">Table</option>
+          </select>
+          <div class="mb-2 d-flex gap-2">
+            <select id="editFont" class="form-select w-50">
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Tahoma">Tahoma</option>
+            </select>
+            <input type="color" id="editColor" class="form-control form-control-color" title="Text color">
+          </div>
+          <textarea id="editTextarea" class="form-control" rows="6"></textarea>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -58,7 +85,7 @@
     </div>
   </div>
 
-  <!-- Bootstrap JS + Popper -->
+  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -66,14 +93,16 @@
     let currentEditIndex = null;
 
     function saveNote() {
-      const text = document.getElementById('noteInput').value.trim();
-      if (!text) return;
-      const bullets = text.split('\n').map(line => line.trim()).filter(Boolean);
-      notes.push(bullets);
+      const type = document.getElementById('noteType').value;
+      const raw = document.getElementById('noteInput').value.trim();
+      const font = document.getElementById('noteFont').value;
+      const color = document.getElementById('noteColor').value;
+      if (!raw) return;
+
+      notes.push({ type, content: raw, font, color });
       localStorage.setItem('notes', JSON.stringify(notes));
       document.getElementById('noteInput').value = '';
       showNotes();
-      // Switch to Notes tab
       document.querySelector('[data-bs-target="#viewNotes"]').click();
     }
 
@@ -83,67 +112,108 @@
       showNotes();
     }
 
+    function openEditModal(index) {
+      currentEditIndex = index;
+      const { type, content, font, color } = notes[index];
+      document.getElementById('editNoteType').value = type;
+      document.getElementById('editTextarea').value = content;
+      document.getElementById('editFont').value = font || "Arial";
+      document.getElementById('editColor').value = color || "#000000";
+      new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    function saveEdit() {
+      const type = document.getElementById('editNoteType').value;
+      const content = document.getElementById('editTextarea').value.trim();
+      const font = document.getElementById('editFont').value;
+      const color = document.getElementById('editColor').value;
+      if (!content) return;
+
+      notes[currentEditIndex] = { type, content, font, color };
+      localStorage.setItem('notes', JSON.stringify(notes));
+      showNotes();
+      bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+    }
+
+    function toggleChecklistItem(checkbox) {
+      checkbox.classList.toggle("text-decoration-line-through");
+    }
+
+    function renderNote(note, idx) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+      body.style.fontFamily = note.font || 'Arial';
+      body.style.color = note.color || '#000000';
+
+      if (note.type === 'checklist') {
+        const ul = document.createElement('ul');
+        ul.className = 'list-unstyled';
+
+        note.content.split('\n').filter(Boolean).forEach(item => {
+          const li = document.createElement('li');
+          const label = document.createElement('label');
+          label.className = 'form-check-label';
+          label.innerHTML = `<input type="checkbox" class="form-check-input me-2" onclick="toggleChecklistItem(this.parentNode)">${item}`;
+          li.appendChild(label);
+          ul.appendChild(li);
+        });
+        body.appendChild(ul);
+      }
+
+      if (note.type === 'table') {
+        const table = document.createElement('table');
+        table.className = 'table table-sm border';
+
+        note.content.split('\n').filter(Boolean).forEach((row, rowIndex) => {
+          const tr = document.createElement('tr');
+          row.split(',').forEach(cell => {
+            const cellEl = document.createElement(rowIndex === 0 ? 'th' : 'td');
+            cellEl.className = 'border text-center align-middle';
+            cellEl.textContent = cell.trim();
+            tr.appendChild(cellEl);
+          });
+          table.appendChild(tr);
+        });
+
+        body.appendChild(table);
+      }
+
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'd-flex gap-2 mt-3';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn btn-sm btn-primary flex-fill';
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = () => openEditModal(idx);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-sm btn-danger flex-fill';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = () => deleteNote(idx);
+
+      btnGroup.appendChild(editBtn);
+      btnGroup.appendChild(delBtn);
+      body.appendChild(btnGroup);
+
+      card.appendChild(body);
+      return card;
+    }
+
     function showNotes() {
       const noteList = document.getElementById('noteList');
       noteList.innerHTML = '';
 
       if (notes.length === 0) {
-        noteList.innerHTML = '<p class="text-muted text-center">No notes available.</p>';
+        noteList.innerHTML = '<p class="text-muted text-center">No notes yet.</p>';
         return;
       }
 
       notes.forEach((note, idx) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-
-        const body = document.createElement('div');
-        body.className = 'card-body';
-
-        const ul = document.createElement('ul');
-        ul.classList.add('mb-3');
-        note.forEach(item => {
-          const li = document.createElement('li');
-          li.textContent = item;
-          ul.appendChild(li);
-        });
-
-        const btnGroup = document.createElement('div');
-        btnGroup.className = 'd-flex gap-2';
-
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-sm btn-primary flex-fill';
-        editBtn.textContent = 'Edit';
-        editBtn.onclick = () => openEditModal(idx);
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn btn-sm btn-danger flex-fill';
-        delBtn.textContent = 'Delete';
-        delBtn.onclick = () => deleteNote(idx);
-
-        btnGroup.appendChild(editBtn);
-        btnGroup.appendChild(delBtn);
-        body.appendChild(ul);
-        body.appendChild(btnGroup);
-        card.appendChild(body);
-        noteList.appendChild(card);
+        noteList.appendChild(renderNote(note, idx));
       });
-    }
-
-    function openEditModal(index) {
-      currentEditIndex = index;
-      const note = notes[index];
-      document.getElementById('editTextarea').value = note.join('\n');
-      const editModal = new bootstrap.Modal(document.getElementById('editModal'));
-      editModal.show();
-    }
-
-    function saveEdit() {
-      const updatedText = document.getElementById('editTextarea').value.trim();
-      if (updatedText === '') return;
-      notes[currentEditIndex] = updatedText.split('\n').map(line => line.trim()).filter(Boolean);
-      localStorage.setItem('notes', JSON.stringify(notes));
-      showNotes();
-      bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
     }
 
     showNotes();
